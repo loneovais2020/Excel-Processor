@@ -1,13 +1,21 @@
 import streamlit as st
 import pandas as pd
 import os
+import re
 
 def process_excel(df):
     # Create a copy of the dataframe to avoid modifying the original
     processed_df = df.copy()
     
-    # Remove spaces from NAME OF INSURED column
-    processed_df['NAME OF INSURED'] = processed_df['NAME OF INSURED'].str.replace(' ', '')
+    # Remove spaces and special characters from NAME OF INSURED column
+    def clean_name(name):
+        if pd.notna(name):
+            # Remove special characters and spaces using regex
+            # Keep only alphanumeric characters
+            return re.sub(r'[^a-zA-Z0-9]', '', str(name))
+        return name
+    
+    processed_df['NAME OF INSURED'] = processed_df['NAME OF INSURED'].apply(clean_name)
     
     # Process MOBILE NO. column - clean and format phone numbers
     def process_mobile(number):
@@ -58,19 +66,27 @@ def main():
                 
                 # Create download button
                 with open(output_filename, 'rb') as f:
-                    st.download_button(
-                        label="Download Processed Excel",
-                        data=f,
-                        file_name=output_filename,
-                        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                    )
+                    file_data = f.read()  # Read file data before closing
                 
-                # Clean up the temporary file
-                os.remove(output_filename)
+                st.download_button(
+                    label="Download Processed Excel",
+                    data=file_data,
+                    file_name=output_filename,
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    on_click=lambda: cleanup_files(output_filename)
+                )
                 
         except Exception as e:
             st.error(f"Error: {str(e)}")
             st.error("Please make sure the file contains a sheet named 'TINY RENEWAL' and the required columns.")
+
+def cleanup_files(output_filename):
+    """Clean up temporary files"""
+    try:
+        if os.path.exists(output_filename):
+            os.remove(output_filename)
+    except Exception as e:
+        st.error(f"Error cleaning up files: {str(e)}")
 
 if __name__ == "__main__":
     main() 
